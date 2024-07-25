@@ -1,6 +1,8 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.templating import Jinja2Templates
+import httpx
+from pydantic import BaseModel
 from starlette.requests import Request
 from starlette.config import Config
 from starlette.responses import RedirectResponse
@@ -104,3 +106,47 @@ def logout(request: Request):
     request.session.pop('user')
     request.session.clear()
     return RedirectResponse('/')
+
+class SearchQuery(BaseModel):
+    slug: str
+
+HASHNODE_API_URL = 'https://gql.hashnode.com/'
+
+@app.post("/search-blogs/")
+async def search_blogs(query: SearchQuery):
+    graphql_query = {
+        "query": """
+        query Tag($slug: String!, $first: Int!, $filter: TagPostConnectionFilter!) {
+          tag(slug: $slug) {
+            posts(first: $first, filter: $filter) {
+              edges {
+                node {
+                  title
+                  content {
+                    markdown
+                  }
+                }
+              }
+            }
+          }
+        }
+        """,
+        "variables": {
+            "slug": query.slug,
+              "first": 10,
+                "filter": {}
+            },
+    }
+    headers = {
+        "Content-Type": "application/json"
+    }
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(HASHNODE_API_URL, headers=headers, json=graphql_query)
+        if response.status_code != 200:
+            raise HTTPException(status_code=response.status_code, detail=response.text)
+        data = response.json()
+        posts = data.get("data", {}).get("tag", {}).get("posts", {}).get("edges", [])
+        extracted_posts = [{"title": post["node"]["title"], "markdown": post["node"]["content"]["markdown"]} for post in posts]
+
+        return {"posts": extracted_posts}
