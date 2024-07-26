@@ -122,6 +122,7 @@ async def search_blogs(query: SearchQuery):
               edges {
                 node {
                   title
+                  url
                   content {
                     markdown
                   }
@@ -147,6 +148,8 @@ async def search_blogs(query: SearchQuery):
             raise HTTPException(status_code=response.status_code, detail=response.text)
         data = response.json()
         posts = data.get("data", {}).get("tag", {}).get("posts", {}).get("edges", [])
-        extracted_posts = [{"title": post["node"]["title"], "markdown": post["node"]["content"]["markdown"]} for post in posts]
+
+        slug_word = query.slug.lower()
+        extracted_posts = [{"title": post["node"]["title"], "blog_url": post["node"]["url"]} for post in posts if slug_word in post["node"]["title"].lower() ]
 
         return {"posts": extracted_posts}
