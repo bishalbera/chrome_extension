@@ -135,7 +135,7 @@ async def search_blogs(query: SearchQuery):
         "variables": {
             "slug": query.slug,
               "first": 10,
-                "filter": {"sort"}
+                "filter": {}
             },
     }
     headers = {
