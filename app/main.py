@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from appwrite.client import Client
 from appwrite.id import ID
 from appwrite.services.databases import Databases
+from appwrite.query import Query
 
 config = Config(".env")
 app = FastAPI()
@@ -70,6 +71,18 @@ async def login(request: Request):
     url = request.url_for('auth')
     return await oauth.google.authorize_redirect(request, url)
 
+def is_user_exists(user_id: str) -> bool:
+
+    res = databases.list_documents(
+        config("DB_ID"),
+        config("COLLECTION_ID"),
+        [
+            Query.equal("user_id",user_id)
+            
+        ]
+    )
+
+    return len(res["documents"]) > 0
 
 @app.get('/auth')
 async def auth(request: Request):
@@ -91,13 +104,14 @@ async def auth(request: Request):
         "name": user["name"]
     }
 
-    databases.create_document(
+    if not is_user_exists(user_id=user_data["user_id"]):
+        databases.create_document(
         config("DB_ID"),
         config("COLLECTION_ID"),
         ID.unique(),
         user_data
     )
-
+        
     return RedirectResponse('welcome')
 
 
